@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1d4ed8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<title>SN Scanner</title>
+<style>
+:root{--bg:#f3f4f6;--card:#fff;--tx:#111827;--mut:#6b7280;--bd:#d1d5db;--pri:#1d4ed8;
+--ok:#16a34a;--okbg:#dcfce7;--miss:#dc2626;--missbg:#fee2e2;--extra:#d97706;--extrabg:#fef3c7}
+@media(prefers-color-scheme:dark){:root{--bg:#0b1220;--card:#162033;--tx:#e5e7eb;--mut:#9ca3af;--bd:#2d3b55;--pri:#60a5fa;
+--okbg:#14532d;--missbg:#7f1d1d;--extrabg:#78350f}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,-apple-system,"Segoe UI","Noto Sans TC",sans-serif;padding-bottom:70px}
+header{position:sticky;top:0;z-index:5;background:var(--pri);color:#fff;padding:10px 16px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+header span{font-weight:400;font-size:13px}
+main{padding:12px 16px;max-width:760px;margin:auto}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--card);border-top:1px solid var(--bd);z-index:5;padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;padding:14px;border:0;background:none;color:var(--mut);font-size:15px;font-weight:600}
+nav button.on{color:var(--pri);box-shadow:inset 0 3px 0 var(--pri)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:12px}
+button.b{background:var(--pri);color:#fff;border:0;border-radius:8px;padding:10px 14px;font-size:14px;font-weight:600}
+button.g{background:none;color:var(--pri);border:1px solid var(--pri);border-radius:8px;padding:9px 12px;font-size:14px}
+button.d{background:none;color:var(--miss);border:1px solid var(--miss);border-radius:8px;padding:9px 12px;font-size:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input,select,textarea{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px;min-width:0}
+#vwrap{position:relative;background:#000;border-radius:12px;overflow:hidden;display:none;margin-bottom:12px}
+video{width:100%;max-height:50vh;display:block;object-fit:cover}
+#vwrap::after{content:"";position:absolute;inset:20% 20%;border:3px solid rgba(255,255,255,.8);border-radius:12px;pointer-events:none}
+.hint{color:var(--mut);font-size:13px}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:12px;color:var(--mut);padding:4px}
+td{padding:4px;vertical-align:middle;border-top:1px solid var(--bd)}
+td.sn{font-family:ui-monospace,Consolas,monospace;font-weight:700;user-select:all;-webkit-user-select:all;white-space:nowrap}
+td select{width:78px}
+td input{width:100%}
+.flash{animation:fl .8s}
+@keyframes fl{from{background:var(--okbg)}to{background:transparent}}
+#toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:#111827;color:#fff;padding:8px 16px;border-radius:20px;font-size:14px;opacity:0;transition:.3s;pointer-events:none;z-index:9;max-width:90vw;text-align:center}
+#toast.show{opacity:.95}
+.sec{border-radius:12px;padding:10px 12px;margin-bottom:12px}
+.sec h3{margin:0 0 6px;font-size:15px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.sec.ok{background:var(--okbg);border:1px solid var(--ok)}
+.sec.miss{background:var(--missbg);border:1px solid var(--miss)}
+.sec.extra{background:var(--extrabg);border:1px solid var(--extra)}
+.chip{display:inline-block;font-family:ui-monospace,Consolas,monospace;background:var(--card);border-radius:6px;padding:3px 8px;margin:2px;font-size:13px;user-select:all;-webkit-user-select:all}
+.chip small{color:var(--mut);font-family:system-ui}
+.sum{display:flex;gap:8px;margin-bottom:12px}
+.sum div{flex:1;text-align:center;border-radius:10px;padding:8px;font-weight:700}
+.sum small{display:block;font-weight:400;font-size:12px}
+.hide{display:none}
+</style>
+</head>
+<body>
+<header>SN Scanner <span id="cnt"></span></header>
+<main>
+
+<!-- ============ 掃描頁 ============ -->
+<section id="p-scan">
+  <div class="card">
+    <div class="row">
+      <button class="b" id="camBtn">📷 開啟相機掃描</button>
+      <label class="g" style="border:1px solid var(--pri);color:var(--pri);border-radius:8px;padding:9px 12px;font-size:14px">
+        🖼 拍照/選圖<input type="file" accept="image/*" capture="environment" id="imgIn" hidden multiple></label>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <input id="manual" placeholder="手動輸入 SN，例如 EA42000217" style="flex:1" autocapitalize="characters">
+      <button class="g" id="addBtn">加入</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <input id="wedge" inputmode="none" autocomplete="off" placeholder="🔫 條碼槍輸入（點此後直接掃）" style="flex:1" autocapitalize="characters">
+    </div>
+    <div class="hint" style="margin-top:6px">相機會連續掃描，掃到的 SN 自動加入並依序號由小到大排序（重複的不會重複加入）。</div>
+  </div>
+  <div id="vwrap"><video id="vid" playsinline muted></video></div>
+
+  <div class="card">
+    <div class="row" style="margin-bottom:8px">
+      <button class="b" id="cpSN">複製全部 SN</button>
+      <button class="g" id="cpTbl">複製整張表</button>
+      <button class="g" id="csvBtn">匯出 CSV</button>
+      <button class="d" id="clrBtn">清空</button>
+    </div>
+    <table>
+      <thead><tr><th>#</th><th>SN#（點一下可全選複製）</th><th>JIG#</th><th>Note</th><th></th></tr></thead>
+      <tbody id="tb"></tbody>
+    </table>
+    <div id="empty" class="hint" style="padding:16px;text-align:center">尚未掃描任何 SN</div>
+  </div>
+</section>
+
+<!-- ============ 比對頁 ============ -->
+<section id="p-cmp" class="hide">
+  <div class="card">
+    <div class="row">
+      <label class="b" style="border-radius:8px;padding:10px 14px;font-size:14px;font-weight:600;background:var(--pri);color:#fff">
+        📂 上傳系統 Excel<input type="file" id="xlIn" accept=".xlsx,.xls,.csv" hidden></label>
+      <span class="hint" id="fname">尚未選擇檔案</span>
+    </div>
+    <div class="row hide" id="opts" style="margin-top:10px">
+      <label>工作表 <select id="shSel"></select></label>
+      <label>SN 欄位 <select id="colSel"></select></label>
+    </div>
+    <div class="hint" style="margin-top:6px">會自動找出含序號（如 EA42000217）的欄位，也可手動更換。</div>
+  </div>
+  <div id="result"></div>
+</section>
+</main>
+
+<nav>
+  <button id="n-scan" class="on">掃描清點</button>
+  <button id="n-cmp">Excel 比對</button>
+</nav>
+<div id="toast"></div>
+
+<script src="lib/jsQR.js"></script>
+<script src="lib/xlsx.full.min.js"></script>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const KEY="sn_scanner_v1";
+let items=[]; // {sn,jig,note}
+try{items=JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){}
+
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(items))}catch(e){}};
+const natCmp=(a,b)=>a.localeCompare(b,"en",{numeric:true,sensitivity:"base"});
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+let tt;
+function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("show"),1800)}
+async function copy(text,msg){
+  try{await navigator.clipboard.writeText(text)}
+  catch(e){const ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();try{document.execCommand("copy")}catch(_){}ta.remove()}
+  toast(msg||"已複製")
+}
+
+/* ---------- SN 解析 ---------- */
+// QR 範例: QR;SN1;MSN:EA42000217;HWID:R0B V1A;MPN:...;MD:2643;EA100;PPN:...
+function parseSN(text){
+  text=String(text||"").trim();
+  let m=text.match(/MSN\s*[:=]\s*([A-Za-z0-9]+)/i); if(m)return m[1].toUpperCase();
+  m=text.match(/\b[A-Za-z]{2}\d{8}\b/); if(m)return m[0].toUpperCase();
+  if(/^[A-Za-z0-9]{6,20}$/.test(text))return text.toUpperCase();
+  return null;
+}
+const normSN=v=>String(v==null?"":v).trim().toUpperCase().replace(/\s+/g,"");
+
+/* ---------- 清單 ---------- */
+function addSN(sn,quiet){
+  if(items.some(i=>i.sn===sn)){if(!quiet)toast("已存在："+sn);return false}
+  items.push({sn,jig:"",note:""});
+  items.sort((a,b)=>natCmp(a.sn,b.sn));
+  save();render(sn);
+  if(!quiet){toast("＋ "+sn);if(navigator.vibrate)navigator.vibrate(60);beep()}
+  return true;
+}
+let actx;
+function beep(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();const o=actx.createOscillator(),g=actx.createGain();o.connect(g);g.connect(actx.destination);o.frequency.value=1000;g.gain.value=.08;o.start();o.stop(actx.currentTime+.1)}catch(e){}}
+
+function render(flashSN){
+  $("cnt").textContent=items.length?`共 ${items.length} 筆`:"";
+  $("empty").style.display=items.length?"none":"block";
+  const jigOpts='<option value="">--</option>'+Array.from({length:16},(_,i)=>`<option value="${i+1}">JIG#${i+1}</option>`).join("");
+  $("tb").innerHTML=items.map((it,i)=>`<tr data-sn="${it.sn}" class="${it.sn===flashSN?"flash":""}">
+    <td>${i+1}</td><td class="sn">${it.sn}</td>
+    <td><select class="jig">${jigOpts.replace(`value="${it.jig}"`,`value="${it.jig}" selected`)}</select></td>
+    <td><input class="note" value="${esc(it.note)}" placeholder="Note"></td>
+    <td><button class="g del" style="padding:4px 8px">✕</button></td></tr>`).join("");
+}
+$("tb").addEventListener("change",e=>{
+  if(!e.target.classList.contains("jig"))return;
+  const it=items.find(i=>i.sn===e.target.closest("tr").dataset.sn);it.jig=e.target.value;save();
+});
+$("tb").addEventListener("input",e=>{
+  if(!e.target.classList.contains("note"))return;
+  const it=items.find(i=>i.sn===e.target.closest("tr").dataset.sn);it.note=e.target.value;save();
+});
+$("tb").addEventListener("click",e=>{
+  const tr=e.target.closest("tr");if(!tr)return;
+  if(e.target.classList.contains("del")){
+    if(confirm("刪除 "+tr.dataset.sn+"？")){items=items.filter(i=>i.sn!==tr.dataset.sn);save();render()}
+  }else if(e.target.classList.contains("sn")){copy(tr.dataset.sn,"已複製 "+tr.dataset.sn)}
+});
+$("cpSN").onclick=()=>items.length?copy(items.map(i=>i.sn).join("\n"),`已複製 ${items.length} 筆 SN`):toast("沒有資料");
+$("cpTbl").onclick=()=>items.length?copy(items.map(i=>[i.sn,i.jig?"JIG#"+i.jig:"",i.note].join("\t")).join("\n"),"已複製整張表（可貼到 Excel）"):toast("沒有資料");
+$("csvBtn").onclick=()=>{
+  if(!items.length)return toast("沒有資料");
+  const q=s=>'"'+String(s).replace(/"/g,'""')+'"';
+  const csv="﻿SN,JIG,Note\n"+items.map(i=>[i.sn,i.jig?"JIG#"+i.jig:"",i.note].map(q).join(",")).join("\n");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  a.download="scanned_SN_"+new Date().toISOString().slice(0,10)+".csv";a.click();
+};
+$("clrBtn").onclick=()=>{if(items.length&&confirm("清空全部 "+items.length+" 筆？")){items=[];save();render()}};
+$("addBtn").onclick=addManual;
+$("manual").addEventListener("keydown",e=>{if(e.key==="Enter")addManual()});
+function addManual(){
+  const v=$("manual").value.trim();if(!v)return;
+  const sn=parseSN(v);if(!sn)return toast("格式無法辨識");
+  addSN(sn);$("manual").value="";
+}
+
+/* ---------- 條碼槍（鍵盤模式）---------- */
+// 條碼槍會像鍵盤一樣快速輸入字元並以 Enter 結尾；內容可為整串 QR 文字或單純 SN。
+function handleScanner(v){
+  v=v.trim();if(v.length<6)return;
+  const sn=parseSN(v);
+  if(sn)addSN(sn);else toast("無法辨識："+v.slice(0,30));
+}
+$("wedge").addEventListener("keydown",e=>{
+  if(e.key==="Enter"){e.preventDefault();handleScanner(e.target.value);e.target.value=""}
+});
+$("wedge").addEventListener("focus",()=>$("wedge").placeholder="🔫 待機中，請直接掃描");
+$("wedge").addEventListener("blur",()=>$("wedge").placeholder="🔫 條碼槍輸入（點此後直接掃）");
+// 未點輸入框時也能接收：快速連續按鍵視為條碼槍
+let kbuf="",klast=0,ktimer;
+function kflush(){clearTimeout(ktimer);const v=kbuf;kbuf="";if(v)handleScanner(v)}
+document.addEventListener("keydown",e=>{
+  if($("p-scan").classList.contains("hide"))return;
+  if(e.target.closest&&e.target.closest("input,select,textarea"))return;
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  if(e.key==="Enter"){kflush();return}
+  if(e.key.length!==1)return;
+  const now=Date.now();if(now-klast>300)kbuf="";
+  kbuf+=e.key;klast=now;clearTimeout(ktimer);ktimer=setTimeout(kflush,250); // 沒有 Enter 結尾的條碼槍也可用
+});
+
+/* ---------- 相機掃描 ---------- */
+let stream=null,scanning=false,lastText="",lastTime=0;
+const detector=("BarcodeDetector" in window)?new BarcodeDetector({formats:["qr_code"]}):null;
+const cv=document.createElement("canvas"),cx=cv.getContext("2d",{willReadFrequently:true});
+
+$("camBtn").onclick=()=>scanning?stopCam():startCam();
+async function startCam(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)
+    return alert("此瀏覽器無法使用相機。請確認網址是 https:// 開頭，或改用「拍照/選圖」。");
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}},audio:false});
+  }catch(e){return alert("無法開啟相機："+e.message)}
+  const v=$("vid");v.srcObject=stream;await v.play();
+  $("vwrap").style.display="block";$("camBtn").textContent="⏹ 關閉相機";
+  scanning=true;loop();
+}
+function stopCam(){
+  scanning=false;if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;
+  $("vwrap").style.display="none";$("camBtn").textContent="📷 開啟相機掃描";
+}
+async function loop(){
+  if(!scanning)return;
+  const v=$("vid");
+  if(v.readyState>=2&&v.videoWidth){
+    let text=null;
+    try{
+      if(detector){const r=await detector.detect(v);if(r.length)text=r[0].rawValue}
+      if(!text){
+        const w=v.videoWidth,h=v.videoHeight;cv.width=w;cv.height=h;cx.drawImage(v,0,0,w,h);
+        const c=jsQR(cx.getImageData(0,0,w,h).data,w,h,{inversionAttempts:"attemptBoth"});if(c)text=c.data;
+      }
+    }catch(e){}
+    if(text)handleText(text);
+  }
+  setTimeout(loop,detector?120:200);
+}
+function handleText(text){
+  const now=Date.now();
+  if(text===lastText&&now-lastTime<2500){lastTime=now;return} // 同一顆連續掃到不重複提示
+  lastText=text;lastTime=now;
+  const sn=parseSN(text);
+  if(!sn)return toast("無法辨識："+text.slice(0,30));
+  addSN(sn);
+}
+// 拍照/選圖解碼
+$("imgIn").onchange=async e=>{
+  let ok=0,fail=0;
+  for(const f of e.target.files){
+    try{
+      const bmp=await createImageBitmap(f);
+      let text=null;
+      if(detector){try{const r=await detector.detect(bmp);if(r.length)text=r[0].rawValue}catch(_){}}
+      if(!text){
+        const s=Math.min(1,2000/Math.max(bmp.width,bmp.height));
+        cv.width=Math.round(bmp.width*s);cv.height=Math.round(bmp.height*s);cx.drawImage(bmp,0,0,cv.width,cv.height);
+        const c=jsQR(cx.getImageData(0,0,cv.width,cv.height).data,cv.width,cv.height,{inversionAttempts:"attemptBoth"});if(c)text=c.data;
+      }
+      const sn=text&&parseSN(text);
+      if(sn){addSN(sn,true);ok++}else fail++;
+    }catch(_){fail++}
+  }
+  e.target.value="";
+  toast(`圖片解碼：成功 ${ok}，失敗 ${fail}`);
+};
+
+/* ---------- Excel 比對 ---------- */
+let wb=null,sheetRows=[];
+const SN_RE=/^[A-Z]{2}\d{8}$/;
+$("xlIn").onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{
+    wb=XLSX.read(await f.arrayBuffer(),{type:"array"});
+  }catch(err){return alert("無法讀取檔案："+err.message)}
+  $("fname").textContent=f.name;
+  $("shSel").innerHTML=wb.SheetNames.map((n,i)=>`<option value="${i}">${esc(n)}</option>`).join("");
+  $("opts").classList.remove("hide");
+  // 預選含最多 SN 的工作表
+  let best=0,bi=0;
+  wb.SheetNames.forEach((n,i)=>{const r=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:false,defval:""});
+    const c=bestCol(r);if(c.score>best){best=c.score;bi=i}});
+  $("shSel").value=bi;loadSheet();
+};
+$("shSel").onchange=loadSheet;
+$("colSel").onchange=compare;
+
+function bestCol(rows){
+  const score={};
+  rows.forEach(r=>r.forEach((v,c)=>{if(SN_RE.test(normSN(v)))score[c]=(score[c]||0)+1}));
+  let col=-1,s=0;for(const c in score)if(score[c]>s){s=score[c];col=+c}
+  return {col,score:s};
+}
+function colName(i){let s="";i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26)}return s}
+function loadSheet(){
+  const ws=wb.Sheets[wb.SheetNames[+$("shSel").value]];
+  sheetRows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:""});
+  const maxC=sheetRows.reduce((m,r)=>Math.max(m,r.length),0);
+  const hdr=sheetRows[0]||[];
+  $("colSel").innerHTML=Array.from({length:maxC},(_,i)=>`<option value="${i}">${colName(i)}${hdr[i]?" – "+esc(String(hdr[i]).slice(0,20)):""}</option>`).join("");
+  const b=bestCol(sheetRows);
+  if(b.col>=0)$("colSel").value=b.col;
+  compare();
+}
+function compare(){
+  if(!wb)return;
+  const col=+$("colSel").value;
+  const excel=new Map(); // sn -> row number
+  sheetRows.forEach((r,i)=>{const sn=normSN(r[col]);if(sn&&SN_RE.test(sn)&&!excel.has(sn))excel.set(sn,i+1)});
+  // 若欄位內沒有符合固定格式的值，退而接受所有非空儲存格（排除標題列）
+  if(!excel.size)sheetRows.forEach((r,i)=>{const sn=normSN(r[col]);if(sn&&i>0&&!excel.has(sn))excel.set(sn,i+1)});
+  const scanned=new Map(items.map(i=>[i.sn,i]));
+  const found=[],missing=[],extra=[];
+  [...excel.keys()].sort(natCmp).forEach(sn=>(scanned.has(sn)?found:missing).push(sn));
+  [...scanned.keys()].sort(natCmp).forEach(sn=>{if(!excel.has(sn))extra.push(sn)});
+  const chips=(list,fn)=>list.length?list.map(fn).join(""):'<span class="hint">（無）</span>';
+  const info=sn=>{const it=scanned.get(sn);return it&&(it.jig||it.note)?` <small>${it.jig?"JIG#"+it.jig:""} ${esc(it.note)}</small>`:""};
+  const sec=(cls,title,list,fn)=>`<div class="sec ${cls}"><h3><span>${title}（${list.length}）</span>
+    ${list.length?`<button class="g" data-cp="${cls}" style="padding:4px 10px">複製</button>`:""}</h3>${chips(list,fn)}</div>`;
+  $("result").innerHTML=`
+    <div class="sum">
+      <div style="background:var(--okbg);color:var(--ok)">${found.length}<small>相符</small></div>
+      <div style="background:var(--missbg);color:var(--miss)">${missing.length}<small>系統有、未掃到</small></div>
+      <div style="background:var(--extrabg);color:var(--extra)">${extra.length}<small>掃到、系統沒有</small></div>
+    </div>
+    <div class="hint" style="margin-bottom:8px">系統 ${excel.size} 筆 ／ 已掃描 ${items.length} 筆</div>
+    ${sec("miss","❌ 缺少：系統有但現場沒掃到",missing,sn=>`<span class="chip">${sn} <small>列${excel.get(sn)}</small></span>`)}
+    ${sec("extra","⚠️ 多出：現場掃到但系統沒有",extra,sn=>`<span class="chip">${sn}${info(sn)}</span>`)}
+    ${sec("ok","✅ 相符",found,sn=>`<span class="chip">${sn}${info(sn)}</span>`)}`;
+  const lists={miss:missing,extra:extra,ok:found};
+  $("result").querySelectorAll("[data-cp]").forEach(b=>b.onclick=()=>copy(lists[b.dataset.cp].join("\n"),"已複製"));
+}
+
+/* ---------- 分頁 ---------- */
+function tab(t){
+  $("p-scan").classList.toggle("hide",t!=="scan");$("p-cmp").classList.toggle("hide",t!=="cmp");
+  $("n-scan").classList.toggle("on",t==="scan");$("n-cmp").classList.toggle("on",t==="cmp");
+  if(t==="cmp"){stopCam();compare()}
+}
+$("n-scan").onclick=()=>tab("scan");$("n-cmp").onclick=()=>tab("cmp");
+
+render();
+if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
